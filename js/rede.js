@@ -1,7 +1,8 @@
 /* =========================================================
-   REDE & LOBBY ONLINE (SALA 2 APARELHOS + PERFIL + CONVITES)
+   REDE & LOBBY ONLINE (FIREBASE FIRESTORE + PEERJS + BROADCAST)
+   - Sincronização em Nuvem via Google Firebase (Firestore em Tempo Real)
    - Perfil único por dispositivo (#ID de 4 dígitos)
-   - Descoberta automática de jogadores online (Lobby Beacon PeerJS + BroadcastChannel)
+   - Descoberta automática de jogadores online
    - Convite em 1 clique com popup de Aceitar/Recusar
    - Sala com código de 4 dígitos onde SOMENTE O ADMIN (Host) configura
    ========================================================= */
@@ -13,6 +14,7 @@ window.NET = (() => {
   const BEACON_ID = 'paixfilho-lobby-beacon-v2';
 
   let myProfile = { id: '1000', nome: 'Jogador', av: '👨' };
+  let extraStats = { hubTitle: 'ARENA 🆚 JOGOS', vitorias: 0, partidas: 0, pontos: 0 };
   let role = null;        // 'host' | 'guest' | null
   let code = null;        // código de 4 dígitos da sala
   let roomPeer = null;    // Peer da sala (quando host)
@@ -30,7 +32,7 @@ window.NET = (() => {
   let onLobbyUpdate = null;
 
   const seen = new Set();
-  const onlinePeers = new Map(); // id -> { id, nome, av, ts, roomCode }
+  const onlinePeers = new Map(); // id -> { id, nome, av, ts, inRoom }
   const beaconClients = new Map(); // id -> DataConnection (usado quando somos o beacon)
 
   const ICE = [
@@ -48,10 +50,9 @@ window.NET = (() => {
   }
 
   function notifyLobby() {
-    // Remove quem não deu sinal há mais de 25s
     const now = Date.now();
     for (const [k, v] of onlinePeers.entries()) {
-      if (now - v.ts > 25000 || k === myProfile.id) onlinePeers.delete(k);
+      if (now - v.ts > 45000 || k === myProfile.id) onlinePeers.delete(k);
     }
     if (typeof onLobbyUpdate === 'function') onLobbyUpdate(getOnlineList());
   }
@@ -60,31 +61,77 @@ window.NET = (() => {
     const now = Date.now();
     const list = [];
     for (const [k, v] of onlinePeers.entries()) {
-      if (k !== myProfile.id && now - v.ts <= 25000) list.push(v);
+      if (k !== myProfile.id && now - v.ts <= 45000) list.push(v);
     }
     return list;
   }
 
   function registerOnlinePeer(p) {
-    if (!p || !p.id || p.id === myProfile.id) return;
-    onlinePeers.set(p.id, {
+    if (!p || !p.id || String(p.id) === String(myProfile.id)) return;
+    onlinePeers.set(String(p.id), {
       id: String(p.id),
       nome: String(p.nome || 'Jogador').slice(0, 16),
       av: p.av || '🎮',
       inRoom: !!p.inRoom,
-      ts: Date.now()
+      ts: p.ts || Date.now()
     });
     notifyLobby();
   }
 
+  /* ---------------- INTEGRAÇÃO COM FIREBASE (window.FB) ---------------- */
+  function bindFirebase() {
+    if (!window.FB) return;
+
+    window.FB.onOnlineUsers = list => {
+      if (Array.isArray(list)) {
+        list.forEach(u => registerOnlinePeer(u));
+      }
+      notifyLobby();
+    };
+
+    window.FB.onInvite = (fromProfile, roomCode) => {
+      if (typeof onInvite === 'function') onInvite(fromProfile, roomCode);
+    };
+
+    window.FB.onRoomSnapshot = data => {
+      if (!data || !role || String(data.code || data.codigo) !== String(code)) return;
+      if (role === 'host') {
+        if (data.status === 'connected' && !connected) {
+          connected = true;
+          notifyStatus('connected');
+        }
+        if (data.guestMsg) {
+          handleIncoming(data.guestMsg);
+        }
+      } else if (role === 'guest') {
+        if (!connected) {
+          connected = true;
+          notifyStatus('connected');
+        }
+        if (data.hostMsg) {
+          handleIncoming(data.hostMsg);
+        }
+      }
+    };
+  }
+
   /* ---------------- LOBBY E PERFIL ONLINE ---------------- */
-  function initLobby(profile) {
+  function initLobby(profile, extra) {
     if (profile) {
       myProfile = {
         id: String(profile.id || genCode()),
         nome: String(profile.nome || 'Jogador').slice(0, 16),
         av: profile.av || '👨'
       };
+    }
+    if (extra) {
+      extraStats = Object.assign(extraStats, extra);
+    }
+
+    bindFirebase();
+    if (window.FB && window.FB.ready) {
+      window.FB.listenInvitesForId(myProfile.id);
+      window.FB.syncProfile(myProfile, Object.assign({}, extraStats, { inRoom: !!role }));
     }
 
     // 1. BroadcastChannel local (mesmo navegador/aparelho)
@@ -104,7 +151,7 @@ window.NET = (() => {
       bcLobby.postMessage({ type: 'who_is_online' });
     }
 
-    // 2. PeerJS User ID + Beacon Global para diferentes dispositivos
+    // 2. PeerJS User ID + Beacon Global
     if (typeof window.Peer === 'function' && !userPeer) {
       try {
         userPeer = new window.Peer(USER_PREFIX + myProfile.id, { config: { iceServers: ICE } });
@@ -189,7 +236,6 @@ window.NET = (() => {
         });
       });
       bp.on('error', () => {
-        // Outro dispositivo já é o beacon, conecta nele
         try { bp.destroy(); } catch (e) {}
         beaconPeer = null;
       });
@@ -222,17 +268,19 @@ window.NET = (() => {
     if (beaconPeer) {
       broadcastBeaconRoster();
     }
+    if (window.FB && window.FB.ready) {
+      window.FB.syncProfile(myProfile, Object.assign({}, extraStats, { inRoom: !!role }));
+    }
   }
 
   setInterval(() => {
     announcePresence();
     notifyLobby();
-  }, 6000);
+  }, 10000);
 
   function inviteFriend(targetId) {
     targetId = String(targetId || '').replace(/\D/g, '').slice(0, 4);
     if (!targetId) return null;
-    // Se ainda não estamos como Host de uma sala, cria uma automaticamente!
     if (!role || role !== 'host') {
       createRoom();
     }
@@ -242,6 +290,9 @@ window.NET = (() => {
       fromProfile: myProfile,
       roomCode: code
     };
+    if (window.FB && window.FB.ready) {
+      window.FB.sendInvite(targetId, myProfile, code);
+    }
     if (bcLobby) {
       try { bcLobby.postMessage(msg); } catch (e) {}
     }
@@ -303,6 +354,9 @@ window.NET = (() => {
     if (conn && conn.open) {
       try { conn.send(msg); } catch (e) {}
     }
+    if (window.FB && window.FB.ready && code && role) {
+      window.FB.sendRoomMessage(code, role, msg);
+    }
   }
 
   function setupRoomBC(roomCode) {
@@ -322,6 +376,7 @@ window.NET = (() => {
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (roomPeer) { try { roomPeer.destroy(); } catch (e) {} roomPeer = null; }
     if (bcRoom) { try { bcRoom.close(); } catch (e) {} bcRoom = null; }
+    if (window.FB) window.FB.leaveCloudRoom();
     announcePresence();
     notifyStatus('disconnected');
   }
@@ -336,7 +391,7 @@ window.NET = (() => {
     c.on('data', data => handleIncoming(data));
     c.on('close', () => {
       conn = null;
-      if (!bcRoom) {
+      if (!bcRoom && (!window.FB || !window.FB.ready)) {
         connected = false;
         notifyStatus('peer_left');
       }
@@ -351,6 +406,10 @@ window.NET = (() => {
     setupRoomBC(code);
     announcePresence();
     notifyStatus('waiting', code);
+
+    if (window.FB && window.FB.ready) {
+      window.FB.createCloudRoom(code, myProfile);
+    }
 
     if (typeof window.Peer === 'function') {
       try {
@@ -377,6 +436,10 @@ window.NET = (() => {
     announcePresence();
     notifyStatus('connecting', code);
 
+    if (window.FB && window.FB.ready) {
+      window.FB.joinCloudRoom(code, myProfile);
+    }
+
     sendRaw({ type: '__ping' });
 
     if (typeof window.Peer === 'function') {
@@ -387,7 +450,9 @@ window.NET = (() => {
           bindConn(c);
         });
         roomPeer.on('error', () => {
-          if (!connected) notifyStatus('error', 'Sala ' + code + ' não encontrada');
+          if (!connected && (!window.FB || !window.FB.ready)) {
+            notifyStatus('error', 'Sala ' + code + ' não encontrada');
+          }
         });
       } catch (e) {}
     }
@@ -412,7 +477,7 @@ window.NET = (() => {
     set onInviteReceived(fn) { onInvite = fn; },
     set onLobbyChange(fn) { onLobbyUpdate = fn; },
     initLobby,
-    updateProfile(p) { initLobby(p); },
+    updateProfile(p, extra) { initLobby(p, extra); },
     inviteFriend,
     createRoom,
     joinRoom,

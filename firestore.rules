@@ -1,0 +1,250 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model — Arena Jogos Hub (arena-jogos-hub-2026)
+// ===============================================================
+//
+// This security rules file assumes the following data structures:
+//
+// 1. Collection: /usuarios/{userId}
+//    Document ID: Firebase Auth UID (userId)
+//    Fields:
+//      - uid: string (optional/immutable, matches userId) - Firebase Auth UID
+//      - id: string (optional, <= 16 chars) - 4-digit player #ID tag
+//      - nome: string (optional, 1..50 chars) - Player display name
+//      - av: string (optional, <= 16 chars) - Player emoji avatar
+//      - hubTitle: string (optional, <= 60 chars) - Custom hub title
+//      - online / inRoom / som: bool (optional) - Status and preferences
+//      - vitorias / partidas / pontos: number (optional, >= 0) - Leaderboard stats
+//      - atualizadoEm / ultimoSinal: timestamp or number (optional) - Presence heartbeat
+//
+// 2. Collection: /salas/{codigoSala}
+//    Document ID: 4-digit room code (codigoSala)
+//    Fields:
+//      - hostUid: string (required on create, matches request.auth.uid) - Room host UID
+//      - codigo: string (optional, <= 16 chars) - Room code
+//      - status / screen: string (optional, <= 60 chars) - Current room status/screen
+//      - players / G / moneyCfg / footCfg / msg: map or list (optional) - Real-time 2-player state
+//      - criadoEm / atualizadoEm: timestamp or number (optional) - Room timestamps
+//
+// 3. Collection: /convites/{conviteId}
+//    Document ID: Invite ID (conviteId)
+//    Fields:
+//      - toId / paraId / toUid: string (optional, <= 128 chars) - Target player #ID or UID
+//      - fromUid / deUid: string (optional, matches request.auth.uid on create) - Sender UID
+//      - roomCode / codigoSala: string (optional, <= 16 chars) - Target room code
+//      - status: string (optional, <= 32 chars) - Invite status (pending, accepted, rejected)
+//
+// 4. Collection: /conteudosCustom/{docId}
+//    Document ID: Custom item/theme ID (docId)
+//    Fields:
+//      - criadoPorUid: string (required, immutable, matches request.auth.uid) - Creator UID
+//      - tipo: string (optional, <= 32 chars) - 'item' or 'tema'
+//      - nome / titulo: string (optional, <= 120 chars) - Custom item or theme title
+//      - preco: number (optional, >= 0) - Item price (for Acerte o Valor)
+//      - jogadores: list (optional, <= 200 items) - Theme player list (for Tema Secreto)
+//
+// 5. Collection: /partidas/{partidaId}
+//    Document ID: Match history ID (partidaId)
+//    Fields:
+//      - uidCriador: string (required on update/delete, matches request.auth.uid) - Creator UID
+//      - modo: string (optional, <= 40 chars) - Game mode identifier
+//      - vencedor: string (optional, <= 80 chars) - Match winner summary
+//      - pts: list (optional, <= 10 items) - Player scores
+//      - criadoEm: timestamp or number (optional) - Match timestamp
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated (Google Sign-In or Anonymous Auth)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns the resource based on path userId
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user owns the document based on a specific UID field in existing resource
+    function isFieldOwner(field) {
+      return isAuthenticated() &&
+        (field in resource.data) &&
+        resource.data[field] == request.auth.uid;
+    }
+
+    // Verify UID hasn't been tampered with on create
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Ensure uid field is not modified on update
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        !('uid' in resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    // Validate optional string (if present and non-null, must be string within length bounds)
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is string &&
+         data[field].size() >= minLen &&
+         data[field].size() <= maxLen);
+    }
+
+    // Validate optional list size bound
+    function isValidOptionalList(data, field, maxSize) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is list && data[field].size() <= maxSize);
+    }
+
+    // Enforce top-level map key count bound to prevent resource exhaustion
+    function hasBoundedKeys(data, maxKeys) {
+      return data is map && data.keys().size() <= maxKeys;
+    }
+
+    // ===============================================================
+    // Domain Validators (Called on BOTH create and update)
+    // ===============================================================
+
+    function isValidUsuario(data) {
+      return hasBoundedKeys(data, 50) &&
+        isValidOptionalString(data, 'uid', 1, 128) &&
+        isValidOptionalString(data, 'id', 1, 32) &&
+        isValidOptionalString(data, 'nome', 1, 80) &&
+        isValidOptionalString(data, 'av', 1, 32) &&
+        isValidOptionalString(data, 'hubTitle', 1, 80) &&
+        isValidOptionalList(data, 'friends', 200) &&
+        isValidOptionalList(data, 'itens', 300) &&
+        isValidOptionalList(data, 'temas', 300);
+    }
+
+    function isValidSala(data) {
+      return hasBoundedKeys(data, 60) &&
+        isValidOptionalString(data, 'hostUid', 1, 128) &&
+        isValidOptionalString(data, 'guestUid', 1, 128) &&
+        isValidOptionalString(data, 'codigo', 1, 16) &&
+        isValidOptionalString(data, 'code', 1, 16) &&
+        isValidOptionalString(data, 'screen', 1, 60) &&
+        isValidOptionalString(data, 'status', 1, 60) &&
+        isValidOptionalList(data, 'players', 10);
+    }
+
+    function isValidConvite(data) {
+      return hasBoundedKeys(data, 30) &&
+        isValidOptionalString(data, 'toId', 1, 128) &&
+        isValidOptionalString(data, 'paraId', 1, 128) &&
+        isValidOptionalString(data, 'toUid', 1, 128) &&
+        isValidOptionalString(data, 'paraUid', 1, 128) &&
+        isValidOptionalString(data, 'fromUid', 1, 128) &&
+        isValidOptionalString(data, 'deUid', 1, 128) &&
+        isValidOptionalString(data, 'roomCode', 1, 16) &&
+        isValidOptionalString(data, 'codigoSala', 1, 16) &&
+        isValidOptionalString(data, 'status', 1, 32);
+    }
+
+    function isValidConteudoCustom(data) {
+      return hasBoundedKeys(data, 30) &&
+        ('criadoPorUid' in data) &&
+        data.criadoPorUid is string &&
+        data.criadoPorUid.size() >= 1 &&
+        data.criadoPorUid.size() <= 128 &&
+        isValidOptionalString(data, 'tipo', 1, 32) &&
+        isValidOptionalString(data, 'nome', 1, 120) &&
+        isValidOptionalString(data, 'titulo', 1, 120) &&
+        isValidOptionalString(data, 'cat', 1, 60) &&
+        isValidOptionalString(data, 'emoji', 1, 32) &&
+        isValidOptionalList(data, 'jogadores', 300);
+    }
+
+    function isValidPartida(data) {
+      return hasBoundedKeys(data, 40) &&
+        isValidOptionalString(data, 'uidCriador', 1, 128) &&
+        isValidOptionalString(data, 'modo', 1, 60) &&
+        isValidOptionalString(data, 'mode', 1, 60) &&
+        isValidOptionalString(data, 'codigoSala', 1, 16) &&
+        isValidOptionalList(data, 'pts', 10) &&
+        isValidOptionalList(data, 'players', 10);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // 1. Perfis de Usuários, Presença Online no Lobby e Ranking
+    match /usuarios/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) &&
+        uidUnchanged() &&
+        isValidUsuario(request.resource.data);
+      allow update: if isOwner(userId) &&
+        uidNotModified() &&
+        isValidUsuario(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Salas Multiplayer em Tempo Real (2 Aparelhos: Host + Convidado)
+    match /salas/{codigoSala} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.hostUid == request.auth.uid &&
+        isValidSala(request.resource.data);
+      allow update: if isAuthenticated() &&
+        isValidSala(request.resource.data) &&
+        (!('hostUid' in resource.data) ||
+         request.resource.data.hostUid == resource.data.hostUid ||
+         request.resource.data.hostUid == request.auth.uid);
+      allow delete: if isFieldOwner('hostUid');
+    }
+
+    // 3. Convites em Tempo Real por #ID ou UID
+    match /convites/{conviteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidConvite(request.resource.data);
+      allow update: if isAuthenticated() &&
+        isValidConvite(request.resource.data);
+      allow delete: if isAuthenticated();
+    }
+
+    // 4. Conteúdos Customizados (Itens de "Acerte o Valor" e Temas de Futebol)
+    match /conteudosCustom/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.criadoPorUid == request.auth.uid &&
+        isValidConteudoCustom(request.resource.data);
+      allow update: if isFieldOwner('criadoPorUid') &&
+        request.resource.data.criadoPorUid == resource.data.criadoPorUid &&
+        isValidConteudoCustom(request.resource.data);
+      allow delete: if isFieldOwner('criadoPorUid');
+    }
+
+    // 5. Histórico e Placar de Partidas
+    match /partidas/{partidaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidPartida(request.resource.data) &&
+        (!('uidCriador' in request.resource.data) ||
+         request.resource.data.uidCriador == request.auth.uid);
+      allow update: if isFieldOwner('uidCriador') &&
+        request.resource.data.uidCriador == resource.data.uidCriador &&
+        isValidPartida(request.resource.data);
+      allow delete: if isFieldOwner('uidCriador');
+    }
+
+    // Default deny para quaisquer outras coleções/caminhos
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

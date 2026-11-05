@@ -50,6 +50,10 @@
   if (!Array.isArray(store.itens)) store.itens = [];
   if (!Array.isArray(store.temas)) store.temas = [];
   if (!Array.isArray(store.friends)) store.friends = [];
+  store.stats = Object.assign({ vitorias: 0, partidas: 0, pontos: 0 }, store.stats);
+
+  let cloudItens = [];
+  let cloudTemas = [];
 
   store.moneyCfg = Object.assign({
     limite: 1000000,     // limite máximo do valor secreto
@@ -94,9 +98,56 @@
   const avt = i => (P()[i] || store.players[0]).av;
   const who = i => `${avt(i)} ${nome(i)}`;
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const allItens = () => window.ITENS.concat(store.itens);
-  const allTemas = () => window.TEMAS.concat(store.temas);
+  const allItens = () => {
+    const localNames = new Set(store.itens.map(i => i.n.toLowerCase()));
+    const extraCloud = cloudItens.filter(c => !localNames.has(c.n.toLowerCase()));
+    return window.ITENS.concat(store.itens, extraCloud);
+  };
+  const allTemas = () => {
+    const localTitles = new Set(store.temas.map(t => t.titulo.toLowerCase()));
+    const extraCloud = cloudTemas.filter(c => !localTitles.has(c.titulo.toLowerCase()));
+    return window.TEMAS.concat(store.temas, extraCloud);
+  };
   const temaById = id => allTemas().find(t => t.id === id);
+
+  function getStatsExtra() {
+    return {
+      hubTitle: store.hubTitle,
+      vitorias: store.stats.vitorias || 0,
+      partidas: store.stats.partidas || 0,
+      pontos: store.stats.pontos || 0
+    };
+  }
+
+  function recordMatchResult(modoLabel) {
+    if (!G || G.cloudRecorded) return;
+    G.cloudRecorded = true;
+    const rank = ranking();
+    const top = rank[0].pts;
+    const ws = rank.filter(r => r.pts === top);
+    const myIdx = NET.active ? NET.myIdx : 0;
+    const myPts = G.pts[myIdx] || 0;
+    const iWon = ws.length === 1 && ws[0].i === myIdx;
+
+    store.stats.partidas = (store.stats.partidas || 0) + 1;
+    if (iWon) store.stats.vitorias = (store.stats.vitorias || 0) + 1;
+    store.stats.pontos = (store.stats.pontos || 0) + Math.max(1, myPts);
+    save();
+    NET.updateProfile(store.profile, getStatsExtra());
+
+    // Apenas o Admin/Host (ou jogo local) grava o registro da partida no histórico geral para não duplicar
+    if (NET.isAdmin && window.FB && window.FB.ready) {
+      const vencedorTxt = ws.length > 1
+        ? `Empate (${ws.map(w => P()[w.i].nome).join(' & ')})`
+        : `${P()[ws[0].i].av} ${P()[ws[0].i].nome}`;
+      window.FB.recordMatch({
+        modo: modoLabel,
+        vencedor: vencedorTxt,
+        pts: G.pts.slice(0, 2),
+        players: P().slice(0, 2).map(p => `${p.av} ${p.nome}`)
+      });
+    }
+  }
 
   const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const fmt = v => BRL.format(Math.round(v));
@@ -477,6 +528,7 @@
           </div>
         </div>
         <div style="display:flex;gap:6px">
+          <button class="icon-btn" data-a="goRanking" title="Ranking & Histórico na Nuvem">🏆</button>
           <button class="icon-btn" data-a="goPlayers" title="Jogadores locais">👥</button>
           ${somBtn()}
         </div>
@@ -541,19 +593,52 @@
       </button>
 
       <div class="foot-links">
+        <button class="btn btn-ghost btn-sm" data-a="goRanking">🏆 Ranking & Histórico</button>
         <button class="btn btn-ghost btn-sm" data-a="goEditor">🛠️ Criar itens e temas</button>
-        <button class="btn btn-ghost btn-sm" data-a="goProfile">👤 Meu Perfil & Nome do Hub</button>
+        <button class="btn btn-ghost btn-sm" data-a="goProfile">👤 Meu Perfil & Nuvem</button>
       </div>
     </div>`;
   };
 
   /* =========================================================
-     PERFIL & PERSONALIZAÇÃO DO HUB
+     PERFIL, CONTA GOOGLE & PERSONALIZAÇÃO DO HUB
      ========================================================= */
-  S.profile = () => `
+  S.profile = () => {
+    const isG = window.FB && window.FB.isGoogle;
+    const fbUser = window.FB && window.FB.user;
+    const fbReady = window.FB && window.FB.ready;
+    return `
   <div class="screen">
     ${topbarSimple()}
-    <h2 class="title-w">👤 Meu Perfil & Hub</h2>
+    <h2 class="title-w">👤 Meu Perfil & Nuvem</h2>
+
+    <div class="panel">
+      <h3>☁️ Conta & Sincronização (Google Firebase)</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <span class="badge ${fbReady ? 'green' : ''}">${fbReady ? (isG ? '🟢 Conta Google Conectada' : '☁️ Nuvem Ativa (Modo Rápido)') : '⏳ Conectando...'}</span>
+          ${isG && fbUser && fbUser.email ? `<div style="margin-top:4px;font-size:14px"><b>${esc(fbUser.email)}</b></div>` : `<div class="muted" style="margin-top:4px"><small>Seus amigos, salas e ranking sincronizam em tempo real no Firebase.</small></div>`}
+        </div>
+        ${isG
+          ? `<button class="btn btn-sm btn-red" data-a="logoutGoogle">🚪 Sair do Google</button>`
+          : `<button class="btn btn-sm btn-blue" data-a="loginGoogle">🔑 Entrar com Google</button>`}
+      </div>
+      <div class="row" style="margin-top:12px;text-align:center">
+        <div style="background:#f8fafc;padding:8px;border-radius:12px;border:2px solid var(--ink)">
+          <small class="muted">🏆 Vitórias</small>
+          <div class="lilita" style="font-size:22px;color:var(--green)">${store.stats.vitorias || 0}</div>
+        </div>
+        <div style="background:#f8fafc;padding:8px;border-radius:12px;border:2px solid var(--ink)">
+          <small class="muted">🎮 Partidas</small>
+          <div class="lilita" style="font-size:22px;color:var(--blue)">${store.stats.partidas || 0}</div>
+        </div>
+        <div style="background:#f8fafc;padding:8px;border-radius:12px;border:2px solid var(--ink)">
+          <small class="muted">⭐ Pontos</small>
+          <div class="lilita" style="font-size:22px;color:var(--purple)">${store.stats.pontos || 0}</div>
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <h3>🪪 Seu Perfil Online</h3>
       <p class="muted"><small>Seu ID único para amigos te convidarem: <b>#${esc(store.profile.id)}</b></small></p>
@@ -578,8 +663,103 @@
 
     <button class="btn btn-big btn-yellow" data-a="saveProfile">Salvar Perfil ✅</button>
   </div>`;
+  };
 
   A.goProfile = () => go('profile');
+  A.loginGoogle = async () => {
+    if (!window.FB) return;
+    try {
+      const u = await window.FB.loginGoogle();
+      if (u && u.displayName && (store.profile.nome === 'Jogador' || store.profile.nome === 'Jogador 1')) {
+        store.profile.nome = u.displayName.split(' ')[0].slice(0, 16);
+      }
+      const cloudDoc = await window.FB.loadCloudProfile();
+      if (cloudDoc) {
+        if (cloudDoc.nome) store.profile.nome = cloudDoc.nome;
+        if (cloudDoc.av) store.profile.av = cloudDoc.av;
+        if (cloudDoc.id) store.profile.id = cloudDoc.id;
+        if (cloudDoc.hubTitle) store.hubTitle = cloudDoc.hubTitle;
+        if (typeof cloudDoc.vitorias === 'number') store.stats.vitorias = Math.max(store.stats.vitorias || 0, cloudDoc.vitorias);
+        if (typeof cloudDoc.partidas === 'number') store.stats.partidas = Math.max(store.stats.partidas || 0, cloudDoc.partidas);
+        if (typeof cloudDoc.pontos === 'number') store.stats.pontos = Math.max(store.stats.pontos || 0, cloudDoc.pontos);
+      }
+      const mySlot = NET.inRoom ? NET.myIdx : 0;
+      store.players[mySlot] = { nome: store.profile.nome, av: store.profile.av, id: store.profile.id };
+      save();
+      NET.updateProfile(store.profile, getStatsExtra());
+      SFX.fanfare();
+      toast('Conectado com Google! 🎉');
+      render();
+    } catch (e) {
+      toast('Login cancelado ou domínio não autorizado no console.');
+    }
+  };
+  A.logoutGoogle = async () => {
+    if (!window.FB) return;
+    await window.FB.logoutGoogle();
+    toast('Sessão Google desconectada.');
+    render();
+  };
+
+  /* =========================================================
+     RANKING & HISTÓRICO DE PARTIDAS NA NUVEM (FIRESTORE)
+     ========================================================= */
+  const MODO_NOMES = {
+    money: '💰 Acerte o Valor',
+    foot: '⚽ Tema Secreto',
+    who: '🕵️ Quem Sou Eu?',
+    hl: '📈 Mais ou Menos?',
+    quiz: '⚡ Duelo Relâmpago'
+  };
+
+  S.ranking = () => {
+    const lb = (window.FB && window.FB.leaderboard) || [];
+    const matches = (window.FB && window.FB.matches) || [];
+    const med = ['🥇', '🥈', '🥉'];
+    return `
+    <div class="screen">
+      ${topbarSimple()}
+      <h2 class="title-w">🏆 Ranking & Histórico</h2>
+      <p class="sub-w">Sincronizado em tempo real no Google Firebase ☁️</p>
+
+      <div class="panel">
+        <h3>🏅 Ranking Geral de Jogadores</h3>
+        ${lb.length
+          ? lb.slice(0, 15).map((u, idx) => `
+              <div class="rank-row">
+                <span class="pos">${med[idx] || (idx + 1) + 'º'}</span>
+                <span class="nm">
+                  ${esc(u.av)} ${esc(u.nome)}
+                  <small class="muted">(#${esc(u.id)})</small>
+                  ${u.online ? '<span class="badge green" style="font-size:10px;padding:2px 6px;margin-left:4px">Online</span>' : ''}
+                </span>
+                <span class="pts">${u.vitorias} 🏆 <small class="muted">(${u.partidas} jgs)</small></span>
+              </div>`).join('')
+          : '<p class="muted"><small>Jogue a primeira partida para estrear o Ranking na nuvem!</small></p>'}
+      </div>
+
+      <div class="panel">
+        <h3>📜 Últimas Partidas no Hub</h3>
+        ${matches.length
+          ? matches.slice(0, 12).map(m => `
+              <div class="list-row" style="flex-direction:column;align-items:stretch;gap:4px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span class="badge">${esc(MODO_NOMES[m.modo] || m.modo || '🎮 Partida')}</span>
+                  <small class="muted">🏆 ${esc(m.vencedor)}</small>
+                </div>
+                <div style="font-weight:700;font-size:15px">
+                  ${Array.isArray(m.players) && m.players.length >= 2
+                    ? `${esc(m.players[0])} (${m.pts ? m.pts[0] : 0}) 🆚 (${m.pts ? m.pts[1] : 0}) ${esc(m.players[1])}`
+                    : esc(m.vencedor)}
+                </div>
+              </div>`).join('')
+          : '<p class="muted"><small>Nenhuma partida registrada ainda. Comece um jogo!</small></p>'}
+      </div>
+
+      <button class="btn btn-big btn-yellow" data-a="home">⬅️ Voltar ao Hub</button>
+    </div>`;
+  };
+  A.goRanking = () => go('ranking');
   A.profAvPick = el => {
     const nEl = document.getElementById('profNome');
     if (nEl && nEl.value.trim()) store.profile.nome = nEl.value.trim();
@@ -604,9 +784,9 @@
     const mySlot = NET.inRoom ? NET.myIdx : 0;
     store.players[mySlot] = { nome: store.profile.nome, av: store.profile.av, id: store.profile.id };
     save();
-    NET.updateProfile(store.profile);
+    NET.updateProfile(store.profile, getStatsExtra());
     SFX.coin();
-    toast('Perfil atualizado! 🎉');
+    toast('Perfil atualizado na nuvem! 🎉');
     go('home', {}, true);
   };
 
@@ -1310,7 +1490,10 @@
       </div>
     </div>`;
   };
-  AF.moneyEnd = celebrate;
+  AF.moneyEnd = () => {
+    celebrate();
+    recordMatchResult('money');
+  };
 
   /* =========================================================
      JOGO 2 — ⚽ TEMA SECRETO (FUTEBOL)
@@ -1916,7 +2099,10 @@
       </div>
     </div>`;
   };
-  AF.footEnd = celebrate;
+  AF.footEnd = () => {
+    celebrate();
+    recordMatchResult(G && G.mode ? G.mode : 'foot');
+  };
 
   /* =========================================================
      JOGO 3 — 🕵️ QUEM SOU EU? (Craques & Lendas)
@@ -2142,14 +2328,18 @@
     if (!n) { toast('Escreva o nome do item ✍️'); return; }
     if (!p) { toast('Coloque o preço 💰'); return; }
     const cat = p <= 300 ? 'barato' : p <= 3000 ? 'lazer' : p <= 30000 ? 'tech' : p <= 500000 ? 'veiculos' : p <= 15000000 ? 'imoveis' : 'absurdo';
-    store.itens.push({ n, e: v('itEmoji') || '🎁', p, cat, custom: true });
-    save(); SFX.coin(); toast('Item adicionado! 🎉'); render();
+    const novoItem = { n, e: v('itEmoji') || '🎁', p, cat, custom: true };
+    store.itens.push(novoItem);
+    if (window.FB && window.FB.ready) window.FB.saveCustomItem(novoItem);
+    save(); SFX.coin(); toast('Item salvo e enviado p/ Nuvem! ☁️🎉'); render();
   };
   A.delItem = el => { if (!confirm('Apagar este item?')) return; store.itens.splice(+el.dataset.i, 1); save(); render(); };
   A.addTema = () => {
     const t = readTemaForm();
     if (!t) return;
-    store.temas.push(t); save(); fillDatalist(); SFX.coin(); toast('Tema adicionado! ⚽'); render();
+    store.temas.push(t);
+    if (window.FB && window.FB.ready) window.FB.saveCustomTema(t);
+    save(); fillDatalist(); SFX.coin(); toast('Tema salvo e enviado p/ Nuvem! ☁️⚽'); render();
   };
   A.delTema = el => { if (!confirm('Apagar este tema?')) return; store.temas.splice(+el.dataset.i, 1); save(); fillDatalist(); render(); };
 
@@ -2245,7 +2435,23 @@
 
   /* ---------------- START ---------------- */
   fillDatalist();
-  NET.initLobby(store.profile);
+  if (window.FB) {
+    window.FB.onAuthChange = () => {
+      NET.initLobby(store.profile, getStatsExtra());
+      if (screen === 'profile' || screen === 'home' || screen === 'ranking') render();
+    };
+    window.FB.onCustomContent = ({ itens, temas }) => {
+      cloudItens = itens || [];
+      cloudTemas = temas || [];
+      fillDatalist();
+      if (screen === 'footChoose' || screen === 'moneyAsk' || screen === 'editor') render();
+    };
+    window.FB.onLeaderboardChange = () => {
+      if (screen === 'ranking') render();
+    };
+    window.FB.init();
+  }
+  NET.initLobby(store.profile, getStatsExtra());
 
   const urlSala = new URLSearchParams(location.search).get('sala');
   if (urlSala && /^\d{4}$/.test(urlSala)) {
