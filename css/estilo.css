@@ -629,7 +629,12 @@ textarea.inp { font-size: 15px; min-height: 110px; resize: vertical; }
 .quiz-opt.ok { background: var(--green); }
 .quiz-opt.no { background: var(--red); color: #fff; }
 
-.screen { animation: fadeUp .3s ease both; }
+.screen { animation: fadeUp .22s ease both; }
+#app.same-screen .screen,
+#app.same-screen .mode-card,
+#app.same-screen .qa-card {
+  animation: none !important;
+}
 
 /* ---------- animações ---------- */
 @keyframes float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-9px) rotate(3deg); } }

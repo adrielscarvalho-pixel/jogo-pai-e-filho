@@ -41,6 +41,8 @@ window.FB = (() => {
   const processedInvites = new Set();
   let leaderboardUsers = [];
   let recentMatches = [];
+  let currentInviteId = null;
+  let lastLbSig = '';
 
   function init() {
     if (typeof window.firebase === 'undefined') {
@@ -121,9 +123,9 @@ window.FB = (() => {
           partidas: Number(d.partidas || 0),
           pontos: Number(d.pontos || 0),
           isGoogle: !!d.isGoogle,
-          online: !!(d.online && d.ultimoSinal && (now - d.ultimoSinal < 45000))
+          online: !!(d.online && d.ultimoSinal && (now - d.ultimoSinal < 90000))
         });
-        if (doc.id !== currentUser.uid && d.online && d.ultimoSinal && (now - d.ultimoSinal < 45000)) {
+        if (doc.id !== currentUser.uid && d.online && d.ultimoSinal && (now - d.ultimoSinal < 90000)) {
           online.push({
             uid: doc.id,
             id: String(d.id || '0000'),
@@ -137,7 +139,11 @@ window.FB = (() => {
       allRank.sort((a, b) => (b.vitorias - a.vitorias) || (b.pontos - a.pontos) || (b.partidas - a.partidas));
       leaderboardUsers = allRank.slice(0, 30);
       if (typeof onOnlineUsersCb === 'function') onOnlineUsersCb(online);
-      if (typeof onLeaderboardCb === 'function') onLeaderboardCb(leaderboardUsers, recentMatches);
+      const lbSig = leaderboardUsers.map(u => `${u.id}:${u.nome}:${u.vitorias}:${u.partidas}:${u.online ? 1 : 0}`).join('|');
+      if (lbSig !== lastLbSig) {
+        lastLbSig = lbSig;
+        if (typeof onLeaderboardCb === 'function') onLeaderboardCb(leaderboardUsers, recentMatches);
+      }
     }, () => {});
 
     // 2. Conteúdos Customizados na Nuvem (/conteudosCustom)
@@ -192,6 +198,8 @@ window.FB = (() => {
 
   function listenInvitesForId(myShortId) {
     if (!db || !currentUser || !myShortId) return;
+    if (currentInviteId === String(myShortId) && unsubInvites) return;
+    currentInviteId = String(myShortId);
     if (unsubInvites) unsubInvites();
     unsubInvites = db.collection('convites')
       .where('toId', '==', String(myShortId))

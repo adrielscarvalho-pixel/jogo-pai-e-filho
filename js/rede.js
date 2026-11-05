@@ -30,8 +30,11 @@ window.NET = (() => {
   let onStatus = null;
   let onInvite = null;
   let onLobbyUpdate = null;
+  let lastLobbySig = '';
+  let lastStatus = '';
 
   const seen = new Set();
+  const seenInvites = new Set();
   const onlinePeers = new Map(); // id -> { id, nome, av, ts, inRoom }
   const beaconClients = new Map(); // id -> DataConnection (usado quando somos o beacon)
 
@@ -46,27 +49,44 @@ window.NET = (() => {
   }
 
   function notifyStatus(st, detail) {
+    const key = `${st}:${detail || ''}`;
+    if (key === lastStatus) return;
+    lastStatus = key;
     if (typeof onStatus === 'function') onStatus(st, detail || '');
+  }
+
+  function deliverInvite(fromProfile, roomCode) {
+    if (!fromProfile || !roomCode) return;
+    const key = `${fromProfile.id || ''}:${roomCode}`;
+    if (seenInvites.has(key)) return;
+    if (code && String(code) === String(roomCode)) return;
+    seenInvites.add(key);
+    if (typeof onInvite === 'function') onInvite(fromProfile, roomCode);
   }
 
   function notifyLobby() {
     const now = Date.now();
     for (const [k, v] of onlinePeers.entries()) {
-      if (now - v.ts > 45000 || k === myProfile.id) onlinePeers.delete(k);
+      if (now - v.ts > 90000 || k === myProfile.id) onlinePeers.delete(k);
     }
-    if (typeof onLobbyUpdate === 'function') onLobbyUpdate(getOnlineList());
+    const list = getOnlineList();
+    const sig = list.map(u => `${u.id}:${u.nome}:${u.av}:${u.inRoom ? 1 : 0}`).sort().join('|');
+    if (sig !== lastLobbySig) {
+      lastLobbySig = sig;
+      if (typeof onLobbyUpdate === 'function') onLobbyUpdate(list);
+    }
   }
 
   function getOnlineList() {
     const now = Date.now();
     const list = [];
     for (const [k, v] of onlinePeers.entries()) {
-      if (k !== myProfile.id && now - v.ts <= 45000) list.push(v);
+      if (k !== myProfile.id && now - v.ts <= 90000) list.push(v);
     }
     return list;
   }
 
-  function registerOnlinePeer(p) {
+  function registerOnlinePeer(p, silent) {
     if (!p || !p.id || String(p.id) === String(myProfile.id)) return;
     onlinePeers.set(String(p.id), {
       id: String(p.id),
@@ -75,7 +95,7 @@ window.NET = (() => {
       inRoom: !!p.inRoom,
       ts: p.ts || Date.now()
     });
-    notifyLobby();
+    if (!silent) notifyLobby();
   }
 
   /* ---------------- INTEGRAÇÃO COM FIREBASE (window.FB) ---------------- */
@@ -84,13 +104,13 @@ window.NET = (() => {
 
     window.FB.onOnlineUsers = list => {
       if (Array.isArray(list)) {
-        list.forEach(u => registerOnlinePeer(u));
+        list.forEach(u => registerOnlinePeer(u, true));
       }
       notifyLobby();
     };
 
     window.FB.onInvite = (fromProfile, roomCode) => {
-      if (typeof onInvite === 'function') onInvite(fromProfile, roomCode);
+      deliverInvite(fromProfile, roomCode);
     };
 
     window.FB.onRoomSnapshot = data => {
@@ -131,7 +151,6 @@ window.NET = (() => {
     bindFirebase();
     if (window.FB && window.FB.ready) {
       window.FB.listenInvitesForId(myProfile.id);
-      window.FB.syncProfile(myProfile, Object.assign({}, extraStats, { inRoom: !!role }));
     }
 
     // 1. BroadcastChannel local (mesmo navegador/aparelho)
@@ -145,7 +164,7 @@ window.NET = (() => {
         } else if (d.type === 'who_is_online') {
           announcePresence();
         } else if (d.type === 'direct_invite' && d.toId === myProfile.id) {
-          if (typeof onInvite === 'function') onInvite(d.fromProfile, d.roomCode);
+          deliverInvite(d.fromProfile, d.roomCode);
         }
       };
       bcLobby.postMessage({ type: 'who_is_online' });
@@ -161,7 +180,7 @@ window.NET = (() => {
         userPeer.on('connection', c => {
           c.on('data', data => {
             if (data && data.type === 'direct_invite') {
-              if (typeof onInvite === 'function') onInvite(data.fromProfile, data.roomCode);
+              deliverInvite(data.fromProfile, data.roomCode);
             } else if (data && data.type === 'presence' && data.profile) {
               registerOnlinePeer(data.profile);
             }
@@ -193,7 +212,7 @@ window.NET = (() => {
         if (data && data.type === 'roster' && Array.isArray(data.peers)) {
           data.peers.forEach(p => registerOnlinePeer(p));
         } else if (data && data.type === 'direct_invite' && data.toId === myProfile.id) {
-          if (typeof onInvite === 'function') onInvite(data.fromProfile, data.roomCode);
+          deliverInvite(data.fromProfile, data.roomCode);
         }
       });
       c.on('close', () => {
@@ -225,7 +244,7 @@ window.NET = (() => {
             broadcastBeaconRoster();
           } else if (data.type === 'direct_invite' && data.toId) {
             if (data.toId === myProfile.id) {
-              if (typeof onInvite === 'function') onInvite(data.fromProfile, data.roomCode);
+              deliverInvite(data.fromProfile, data.roomCode);
             } else {
               const targetConn = beaconClients.get(data.toId);
               if (targetConn && targetConn.open) {
@@ -276,7 +295,7 @@ window.NET = (() => {
   setInterval(() => {
     announcePresence();
     notifyLobby();
-  }, 10000);
+  }, 25000);
 
   function inviteFriend(targetId) {
     targetId = String(targetId || '').replace(/\D/g, '').slice(0, 4);
@@ -369,7 +388,7 @@ window.NET = (() => {
     }
   }
 
-  function stop() {
+  function stop(silent) {
     connected = false;
     role = null;
     code = null;
@@ -377,15 +396,19 @@ window.NET = (() => {
     if (roomPeer) { try { roomPeer.destroy(); } catch (e) {} roomPeer = null; }
     if (bcRoom) { try { bcRoom.close(); } catch (e) {} bcRoom = null; }
     if (window.FB) window.FB.leaveCloudRoom();
-    announcePresence();
-    notifyStatus('disconnected');
+    if (!silent) {
+      announcePresence();
+      notifyStatus('disconnected');
+    }
   }
 
   function bindConn(c) {
     conn = c;
     c.on('open', () => {
-      connected = true;
-      notifyStatus('connected');
+      if (!connected) {
+        connected = true;
+        notifyStatus('connected');
+      }
       sendRaw({ type: '__ping' });
     });
     c.on('data', data => handleIncoming(data));
@@ -400,7 +423,7 @@ window.NET = (() => {
   }
 
   function createRoom(customCode) {
-    stop();
+    stop(true);
     role = 'host';
     code = customCode || genCode();
     setupRoomBC(code);
@@ -429,7 +452,7 @@ window.NET = (() => {
   function joinRoom(roomCode) {
     roomCode = String(roomCode || '').replace(/\D/g, '').slice(0, 4);
     if (roomCode.length !== 4) return false;
-    stop();
+    stop(true);
     role = 'guest';
     code = roomCode;
     setupRoomBC(code);

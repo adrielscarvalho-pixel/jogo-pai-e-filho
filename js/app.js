@@ -245,7 +245,7 @@
     const em = ['💰', '⚽', '🏆', '💸', '🎮', '⭐', '🚗', '👟', '💎', '🥅', '🍕', '🚀'];
     let h = '';
     for (let i = 0; i < 14; i++) {
-      h += `<span style="left:${Math.random() * 92}%;animation-duration:${16 + Math.random() * 16}s;animation-delay:-${Math.random() * 30}s;font-size:${28 + Math.random() * 30}s">${em[i % em.length]}</span>`;
+      h += `<span style="left:${Math.random() * 92}%;animation-duration:${16 + Math.random() * 16}s;animation-delay:-${Math.random() * 30}s;font-size:${28 + Math.random() * 30}px">${em[i % em.length]}</span>`;
     }
     el.innerHTML = h;
   })();
@@ -317,8 +317,34 @@
     render();
   };
 
+  function renderOnlinePeersList() {
+    const online = NET.onlineList;
+    return `
+      <h3>🟢 Jogadores Online Agora (${online.length})</h3>
+      ${online.length
+        ? online.map(u => `
+            <div class="friend-row">
+              <span class="fav">${esc(u.av)}</span>
+              <div class="fnm">
+                ${esc(u.nome)} <span class="badge green">Online</span>
+                <small>ID #${esc(u.id)} ${u.inRoom ? '• Em sala' : '• Disponível no lobby'}</small>
+              </div>
+              <button class="btn btn-sm btn-yellow" data-a="convidarId" data-id="${esc(u.id)}">📨 Convidar</button>
+            </div>`).join('')
+        : `<p class="muted"><small>Assim que o outro aparelho abrir o site, o perfil dele aparece aqui automaticamente para você convidar com 1 toque!</small></p>`}`;
+  }
+
   NET.onLobbyChange = () => {
-    if (screen === 'room' || screen === 'home') render();
+    if (screen === 'home') {
+      const sub = document.getElementById('homeOnlineSub');
+      if (sub && !NET.active) {
+        const c = NET.onlineList.length;
+        sub.textContent = c > 0 ? `🟢 ${c} jogador(es) online agora para convidar!` : 'Crie uma sala com código ou convide um amigo online';
+      }
+    } else if (screen === 'room') {
+      const box = document.getElementById('onlinePeersBox');
+      if (box) box.innerHTML = renderOnlinePeersList();
+    }
   };
 
   NET.onInviteReceived = (fromProfile, roomCode) => {
@@ -460,18 +486,54 @@
     return '';
   }
 
+  let lastRenderedHtml = '';
+  let lastRenderedScreen = '';
+
   function render() {
+    const newHtml = S[screen]();
+    const isNewScreen = (screen !== lastRenderedScreen);
+    if (!isNewScreen && newHtml === lastRenderedHtml) return;
+
+    // Preserva valores de inputs/textareas caso re-renderize a mesma tela
+    const savedInputs = {};
+    if (!isNewScreen) {
+      app.querySelectorAll('input[id], textarea[id], select[id]').forEach(el => {
+        if (el.type === 'checkbox') savedInputs[el.id] = { checked: el.checked };
+        else savedInputs[el.id] = { value: el.value };
+      });
+    }
+
     const activeEl = document.activeElement;
     const focusId = activeEl && activeEl.id ? activeEl.id : null;
     const selStart = activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null;
-    app.innerHTML = S[screen]();
+
+    if (isNewScreen) app.classList.remove('same-screen');
+    else app.classList.add('same-screen');
+
+    lastRenderedHtml = newHtml;
+    lastRenderedScreen = screen;
+    app.innerHTML = newHtml;
     document.body.className = modeClass();
-    if (AF[screen]) AF[screen]();
-    if (focusId && (focusId === 'itemSearchIn' || focusId === 'temaSearchIn')) {
+
+    if (!isNewScreen) {
+      Object.keys(savedInputs).forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if ('checked' in savedInputs[id]) el.checked = savedInputs[id].checked;
+        else if (id !== 'itemSearchIn' && id !== 'temaSearchIn') el.value = savedInputs[id].value;
+      });
+    }
+
+    if (isNewScreen && AF[screen]) AF[screen]();
+    else if (!isNewScreen && screen === 'footPlay' && AF.footPlay) AF.footPlay();
+
+    if (focusId) {
       const nf = document.getElementById(focusId);
       if (nf) {
-        nf.focus();
-        if (selStart != null) { try { nf.setSelectionRange(selStart, selStart); } catch (e) {} }
+        nf.focus({ preventScroll: true });
+        if (selStart != null && typeof nf.setSelectionRange === 'function') {
+          try { nf.setSelectionRange(selStart, selStart); } catch (e) {}
+        }
       }
     }
   }
@@ -549,7 +611,7 @@
               ? `<div><b>Sala #${NET.code} Conectada!</b> (${NET.isHost ? '👑 Admin' : 'Convidado'})</div>
                  <small class="muted">${who(0)} 🆚 ${who(1)}</small>`
               : `<div><b>Jogar em 2 Aparelhos / Amigos Online</b></div>
-                 <small class="muted">${onlineCount > 0 ? `🟢 ${onlineCount} jogador(es) online agora para convidar!` : 'Crie uma sala com código ou convide um amigo online'}</small>`}
+                 <small class="muted" id="homeOnlineSub">${onlineCount > 0 ? `🟢 ${onlineCount} jogador(es) online agora para convidar!` : 'Crie uma sala com código ou convide um amigo online'}</small>`}
           </div>
         </div>
         <span class="badge">${NET.active ? 'Ver Sala' : 'Conectar ➡️'}</span>
@@ -799,18 +861,9 @@
 
     const onlineHtml = `
       <div class="panel">
-        <h3>🟢 Jogadores Online Agora (${online.length})</h3>
-        ${online.length
-          ? online.map(u => `
-              <div class="friend-row">
-                <span class="fav">${esc(u.av)}</span>
-                <div class="fnm">
-                  ${esc(u.nome)} <span class="badge green">Online</span>
-                  <small>ID #${esc(u.id)} ${u.inRoom ? '• Em sala' : '• Disponível no lobby'}</small>
-                </div>
-                <button class="btn btn-sm btn-yellow" data-a="convidarId" data-id="${esc(u.id)}">📨 Convidar</button>
-              </div>`).join('')
-          : `<p class="muted"><small>Assim que o outro aparelho abrir o site, o perfil dele aparece aqui automaticamente para você convidar com 1 toque!</small></p>`}
+        <div id="onlinePeersBox">
+          ${renderOnlinePeersList()}
+        </div>
 
         <div style="margin-top:12px;padding-top:10px;border-top:2px dashed #eee">
           <small class="muted">Ou convide direto pelo <b>ID # de 4 dígitos</b> do perfil do amigo:</small>
@@ -2438,7 +2491,7 @@
   if (window.FB) {
     window.FB.onAuthChange = () => {
       NET.initLobby(store.profile, getStatsExtra());
-      if (screen === 'profile' || screen === 'home' || screen === 'ranking') render();
+      if (screen === 'profile' || screen === 'ranking') render();
     };
     window.FB.onCustomContent = ({ itens, temas }) => {
       cloudItens = itens || [];
