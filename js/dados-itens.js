@@ -1,0 +1,76 @@
+/* =========================================================
+   ITENS DO MODO "DÁ PRA COMPRAR?"
+   Preços APROXIMADOS em reais (Brasil, 2026).
+   n = nome com artigo (vai aparecer em "Dá pra comprar ___?")
+   e = emoji   p = preço em R$
+   Dica: você pode adicionar itens pelo próprio jogo
+   (menu "Meus itens e temas"), sem mexer aqui.
+   ========================================================= */
+window.ITENS = [
+  // --- baratinhos ---
+  { n: 'um pirulito', e: '🍭', p: 1 },
+  { n: 'um pão francês', e: '🥖', p: 1 },
+  { n: 'um brigadeiro', e: '🍫', p: 3 },
+  { n: 'um picolé', e: '🍦', p: 6 },
+  { n: 'um pacotinho de figurinhas', e: '🃏', p: 7 },
+  { n: 'uma coxinha', e: '🍗', p: 8 },
+  { n: 'uma Coca-Cola de 2 litros', e: '🥤', p: 12 },
+  { n: 'uma caixa de bombom', e: '🍬', p: 15 },
+  { n: 'um pote de sorvete de 2 litros', e: '🍨', p: 30 },
+  { n: 'um ingresso de cinema', e: '🎬', p: 35 },
+  { n: 'um combo de hambúrguer', e: '🍔', p: 40 },
+  { n: 'um mês de Netflix', e: '📺', p: 45 },
+  { n: 'uma pizza grande', e: '🍕', p: 70 },
+  { n: 'um ovo de Páscoa grande', e: '🥚', p: 80 },
+  { n: 'uma bola de futebol', e: '⚽', p: 100 },
+  // --- médios ---
+  { n: 'uma mochila escolar', e: '🎒', p: 200 },
+  { n: 'um jogo novo de videogame', e: '💿', p: 350 },
+  { n: 'um skate', e: '🛹', p: 400 },
+  { n: 'um ingresso pra ver o Brasil jogar', e: '🎟️', p: 400 },
+  { n: 'a camisa oficial da Seleção', e: '👕', p: 500 },
+  { n: 'um controle de PS5', e: '🎮', p: 500 },
+  { n: 'uma passagem de avião Rio–São Paulo', e: '✈️', p: 600 },
+  { n: 'um pebolim (totó)', e: '🥅', p: 1000 },
+  { n: 'um celular simples', e: '📱', p: 1000 },
+  { n: 'uma cama elástica', e: '🤸', p: 1500 },
+  { n: 'um fone AirPods', e: '🎧', p: 1500 },
+  { n: 'uma chuteira profissional', e: '👟', p: 1800 },
+  { n: 'uma bicicleta boa', e: '🚲', p: 2000 },
+  { n: 'um robô aspirador', e: '🤖', p: 2000 },
+  { n: 'um patinete elétrico', e: '🛴', p: 3000 },
+  { n: 'um PS5', e: '🎮', p: 4000 },
+  { n: 'um óculos de realidade virtual', e: '🥽', p: 4000 },
+  { n: 'uma TV gigante de 65 polegadas', e: '📺', p: 4000 },
+  { n: 'um Nintendo Switch 2', e: '🕹️', p: 4500 },
+  { n: 'uma mesa de sinuca', e: '🎱', p: 5000 },
+  { n: 'o LEGO gigante da Millennium Falcon', e: '🧱', p: 6000 },
+  { n: 'um drone com câmera', e: '🛸', p: 6000 },
+  { n: 'um notebook gamer', e: '💻', p: 8000 },
+  { n: 'o iPhone mais caro', e: '📱', p: 12000 },
+  // --- caros ---
+  { n: 'uma festa de aniversário no buffet', e: '🎉', p: 15000 },
+  { n: 'uma moto Honda CG', e: '🏍️', p: 18000 },
+  { n: 'um cavalo', e: '🐴', p: 20000 },
+  { n: 'um PC gamer monstro', e: '🖥️', p: 40000 },
+  { n: 'uma viagem pra Disney com a família', e: '🏰', p: 60000 },
+  { n: 'um carro popular (Fiat Mobi)', e: '🚗', p: 75000 },
+  { n: 'um BYD Dolphin Mini (elétrico)', e: '🔋', p: 120000 },
+  { n: 'uma SUV zero (Jeep Compass)', e: '🚙', p: 200000 },
+  { n: 'um apartamento de 2 quartos', e: '🏢', p: 400000 },
+  // --- absurdos ---
+  { n: 'um Porsche 911', e: '🏎️', p: 1100000 },
+  { n: 'uma casa com piscina', e: '🏡', p: 1500000 },
+  { n: 'uma viagem para o espaço', e: '🚀', p: 3000000 },
+  { n: 'uma Ferrari', e: '🏎️', p: 4000000 },
+  { n: 'uma fazenda enorme', e: '🚜', p: 10000000 },
+  { n: 'um helicóptero', e: '🚁', p: 10000000 },
+  { n: 'uma mansão com campo de futebol', e: '🏟️', p: 20000000 },
+  { n: 'um iate de luxo', e: '🛥️', p: 25000000 },
+  { n: 'uma ilha particular', e: '🏝️', p: 30000000 },
+  { n: 'um jatinho particular', e: '🛩️', p: 50000000 },
+  { n: '1 mês de salário do Cristiano Ronaldo', e: '🤑', p: 100000000 },
+  { n: 'o passe do Vini Jr.', e: '⭐', p: 900000000 },
+  { n: 'o passe do Haaland', e: '🦾', p: 1100000000 },
+  { n: 'o Real Madrid inteiro', e: '👑', p: 35000000000 },
+];

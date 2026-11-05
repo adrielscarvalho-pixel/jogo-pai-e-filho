@@ -1,0 +1,22 @@
+{
+  "name": "jogo-pai-e-filho",
+  "version": "1.0.0",
+  "description": "Pai 🆚 Filho — O Desafio: Dá Pra Comprar? (Valor Secreto) & Tema Secreto de Futebol",
+  "private": false,
+  "scripts": {
+    "start": "http-server . -p 3000 -o -c-1",
+    "dev": "http-server . -p 3000 -o -c-1"
+  },
+  "keywords": [
+    "jogo",
+    "familia",
+    "futebol",
+    "da-pra-comprar",
+    "trivia"
+  ],
+  "author": "adrielscarvalho-pixel",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
