@@ -50,12 +50,12 @@ window.FB = (() => {
       return;
     }
     try {
-      app = window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
-      auth = window.firebase.auth();
-      db = window.firebase.firestore();
+      const appName = window.__IS_SECONDARY_TAB ? 'secondary-tab' : '[DEFAULT]';
+      const existing = window.firebase.apps.find(a => a.name === appName);
+      app = existing || (appName === '[DEFAULT]' ? window.firebase.initializeApp(firebaseConfig) : window.firebase.initializeApp(firebaseConfig, appName));
+      auth = app.auth();
+      db = app.firestore();
 
-      // Aba principal usa persistência LOCAL (mantém o mesmo UID e perfil sempre);
-      // 2ª aba simultânea no mesmo navegador usa SESSION para ter UID independente.
       const pers = window.__IS_SECONDARY_TAB
         ? window.firebase.auth.Auth.Persistence.SESSION
         : window.firebase.auth.Auth.Persistence.LOCAL;

@@ -540,7 +540,8 @@
     lastRenderedHtml = newHtml;
     lastRenderedScreen = screen;
     app.innerHTML = newHtml;
-    document.body.className = modeClass();
+    const nextCls = modeClass();
+    if (document.body.className !== nextCls) document.body.className = nextCls;
 
     if (!isNewScreen) {
       Object.keys(savedInputs).forEach(id => {

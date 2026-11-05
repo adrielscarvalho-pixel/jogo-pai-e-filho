@@ -26,28 +26,24 @@ body {
     radial-gradient(circle at 12% 8%, rgba(123, 92, 255, .9) 0, transparent 42%),
     radial-gradient(circle at 88% 85%, rgba(255, 77, 109, .75) 0, transparent 42%),
     linear-gradient(155deg, #3b1d9e 0%, #1e1154 60%, #130a38 100%);
-  background-attachment: fixed;
 }
 body.m-money {
   background:
     radial-gradient(circle at 15% 12%, rgba(255, 210, 63, .85) 0, transparent 38%),
     radial-gradient(circle at 85% 88%, rgba(29, 209, 119, .8) 0, transparent 42%),
     linear-gradient(160deg, #0d9456, #043e2d);
-  background-attachment: fixed;
 }
 body.m-foot {
   background:
     radial-gradient(circle at 50% 50%, transparent 0 118px, rgba(255,255,255,.18) 119px 124px, transparent 125px),
     linear-gradient(90deg, transparent calc(50% - 3px), rgba(255,255,255,.18) calc(50% - 3px) calc(50% + 3px), transparent calc(50% + 3px)),
     repeating-linear-gradient(0deg, #1b8f42 0 70px, #22a34d 70px 140px);
-  background-attachment: fixed;
 }
 body.m-quiz {
   background:
     radial-gradient(circle at 20% 15%, rgba(59, 130, 246, .85) 0, transparent 40%),
     radial-gradient(circle at 85% 85%, rgba(6, 182, 212, .75) 0, transparent 40%),
     linear-gradient(160deg, #1e3a8a, #0f172a);
-  background-attachment: fixed;
 }
 
 #app {
@@ -91,7 +87,7 @@ small { font-size: 13px; }
 /* ---------- header do hub & perfil ---------- */
 .hub-header {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: rgba(255,255,255,.13); backdrop-filter: blur(10px);
+  background: rgba(30, 17, 84, .85);
   border: 2.5px solid rgba(255,255,255,.28); border-radius: 22px;
   padding: 8px 12px; margin-bottom: 12px; color: #fff;
 }
@@ -201,7 +197,6 @@ small { font-size: 13px; }
   box-shadow: 0 7px 0 var(--ink); cursor: pointer;
   font-family: inherit; color: var(--ink);
   transition: transform .14s;
-  animation: popIn .4s cubic-bezier(.2, 1.3, .4, 1) both;
 }
 .mode-card:hover { transform: translateY(-2px); }
 .mode-card:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
@@ -311,7 +306,7 @@ small { font-size: 13px; }
 .qa-card {
   background: #fff; border: 4px solid var(--ink); border-radius: 26px;
   padding: 18px 16px; text-align: center; margin-top: 12px;
-  box-shadow: 0 8px 0 var(--ink); animation: popIn .35s ease both;
+  box-shadow: 0 8px 0 var(--ink);
 }
 .qa-card .qe { font-size: 68px; line-height: 1.1; }
 .qa-card h3 { font-family: 'Lilita One'; font-size: 26px; margin: 6px 0; }
@@ -629,12 +624,7 @@ textarea.inp { font-size: 15px; min-height: 110px; resize: vertical; }
 .quiz-opt.ok { background: var(--green); }
 .quiz-opt.no { background: var(--red); color: #fff; }
 
-.screen { animation: fadeUp .22s ease both; }
-#app.same-screen .screen,
-#app.same-screen .mode-card,
-#app.same-screen .qa-card {
-  animation: none !important;
-}
+.screen { }
 
 /* ---------- animações ---------- */
 @keyframes float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-9px) rotate(3deg); } }
