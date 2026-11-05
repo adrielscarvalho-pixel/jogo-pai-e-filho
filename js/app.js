@@ -33,13 +33,37 @@
   if (!store.profile || !store.profile.id) {
     store.profile = { id: randId(), nome: 'Jogador 1', av: '👨' };
   }
-  let tabProf = null;
-  try { tabProf = JSON.parse(sessionStorage.getItem(KEY + '.prof')); } catch (e) {}
-  if (!tabProf || !tabProf.id) {
-    tabProf = { id: randId(), nome: store.profile.nome || 'Jogador', av: store.profile.av || '👨' };
-    try { sessionStorage.setItem(KEY + '.prof', JSON.stringify(tabProf)); } catch (e) {}
+
+  // Detecta se já existe outra aba aberta no mesmo navegador neste exato momento
+  let tabRole = null;
+  try { tabRole = sessionStorage.getItem(KEY + '.tabRole'); } catch (e) {}
+  const lastPrimaryTs = Number(localStorage.getItem(KEY + '.primaryTs') || 0);
+  const anotherTabActive = (Date.now() - lastPrimaryTs < 12000);
+
+  if (tabRole === 'primary' || (!tabRole && !anotherTabActive)) {
+    tabRole = 'primary';
+    try {
+      sessionStorage.setItem(KEY + '.tabRole', 'primary');
+      localStorage.setItem(KEY + '.primaryTs', String(Date.now()));
+    } catch (e) {}
+    setInterval(() => {
+      try { localStorage.setItem(KEY + '.primaryTs', String(Date.now())); } catch (e) {}
+    }, 5000);
+    window.addEventListener('beforeunload', () => {
+      try { localStorage.removeItem(KEY + '.primaryTs'); } catch (e) {}
+    });
+  } else {
+    tabRole = 'secondary';
+    try { sessionStorage.setItem(KEY + '.tabRole', 'secondary'); } catch (e) {}
+    let secProf = null;
+    try { secProf = JSON.parse(sessionStorage.getItem(KEY + '.secProf')); } catch (e) {}
+    if (!secProf || !secProf.id || secProf.id === store.profile.id) {
+      secProf = { id: randId(), nome: 'Jogador 2', av: '🧒' };
+      try { sessionStorage.setItem(KEY + '.secProf', JSON.stringify(secProf)); } catch (e) {}
+    }
+    store.profile = secProf;
   }
-  store.profile = tabProf;
+  window.__IS_SECONDARY_TAB = (tabRole === 'secondary');
   if (!Array.isArray(store.players) || store.players.length < 2) {
     store.players = [
       { nome: store.profile.nome || 'Jogador 1', av: store.profile.av || '👨', id: store.profile.id },
@@ -73,8 +97,11 @@
 
   const save = () => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(store));
-      sessionStorage.setItem(KEY + '.prof', JSON.stringify(store.profile));
+      if (window.__IS_SECONDARY_TAB) {
+        sessionStorage.setItem(KEY + '.secProf', JSON.stringify(store.profile));
+      } else {
+        localStorage.setItem(KEY, JSON.stringify(store));
+      }
     } catch (e) {}
   };
   SFX.on = store.som;

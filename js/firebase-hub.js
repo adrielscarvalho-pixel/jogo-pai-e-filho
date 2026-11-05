@@ -54,8 +54,12 @@ window.FB = (() => {
       auth = window.firebase.auth();
       db = window.firebase.firestore();
 
-      // Usa persistência SESSION para que cada aba/aparelho tenha seu próprio UID independente
-      auth.setPersistence(window.firebase.auth.Auth.Persistence.SESSION).catch(() => {}).finally(() => {
+      // Aba principal usa persistência LOCAL (mantém o mesmo UID e perfil sempre);
+      // 2ª aba simultânea no mesmo navegador usa SESSION para ter UID independente.
+      const pers = window.__IS_SECONDARY_TAB
+        ? window.firebase.auth.Auth.Persistence.SESSION
+        : window.firebase.auth.Auth.Persistence.LOCAL;
+      auth.setPersistence(pers).catch(() => {}).finally(() => {
         auth.onAuthStateChanged(user => {
           if (user) {
             currentUser = user;
@@ -114,18 +118,22 @@ window.FB = (() => {
       snap.forEach(doc => {
         const d = doc.data();
         if (!d) return;
-        allRank.push({
-          uid: doc.id,
-          id: d.id || '0000',
-          nome: d.nome || 'Jogador',
-          av: d.av || '🎮',
-          vitorias: Number(d.vitorias || 0),
-          partidas: Number(d.partidas || 0),
-          pontos: Number(d.pontos || 0),
-          isGoogle: !!d.isGoogle,
-          online: !!(d.online && d.ultimoSinal && (now - d.ultimoSinal < 90000))
-        });
-        if (doc.id !== currentUser.uid && d.online && d.ultimoSinal && (now - d.ultimoSinal < 90000)) {
+        const isOnline = !!(d.online && d.ultimoSinal && (now - d.ultimoSinal < 90000));
+        const hasPlayedOrNamed = Number(d.partidas || 0) > 0 || Number(d.vitorias || 0) > 0 || (d.nome && d.nome !== 'Jogador 1' && d.nome !== 'Jogador');
+        if (isOnline || hasPlayedOrNamed || doc.id === currentUser.uid) {
+          allRank.push({
+            uid: doc.id,
+            id: d.id || '0000',
+            nome: d.nome || 'Jogador',
+            av: d.av || '🎮',
+            vitorias: Number(d.vitorias || 0),
+            partidas: Number(d.partidas || 0),
+            pontos: Number(d.pontos || 0),
+            isGoogle: !!d.isGoogle,
+            online: isOnline
+          });
+        }
+        if (doc.id !== currentUser.uid && isOnline) {
           online.push({
             uid: doc.id,
             id: String(d.id || '0000'),
