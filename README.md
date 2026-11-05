@@ -17,6 +17,15 @@ Um jogador é o **Juiz** e escolhe um tema secreto entre 3 opções sorteadas (o
 - **🎯 Chutar o Tema:** Se acertar, **todas as fichas que sobraram viram pontos!** Se errar, `-3 ⚽`.
 - **🧤 Defesa do Juiz:** Se as fichas acabarem, o Juiz ganha **+5 pontos**.
 
+## 📲 Jogar em 1 ou 2 Aparelhos
+
+- **1 Aparelho (Passa o celular):** O próprio jogo bloqueia a tela com aviso antes de revelar o valor secreto ou o tema secreto de cada um.
+- **2 Aparelhos (Sala Online em Tempo Real):**
+  1. No Aparelho 1, toque em **📲 Jogar em 2 Aparelhos → Criar Sala** (gera um código de 4 dígitos, ex: `7954`, ou link direto).
+  2. No Aparelho 2, abra o link e digite os 4 dígitos em **Entrar numa Sala**.
+  3. No **Dá Pra Comprar?**, cada um digita seu valor secreto no próprio aparelho simultaneamente.
+  4. No **Tema Secreto ⚽**, a tela do **Juiz** mostra o tema secreto e a cola de jogadores o tempo todo, enquanto a tela do **Adivinhador** esconde o segredo e mostra os palpites/dicas em tempo real!
+
 ## 🚀 Como jogar
 
 - **Direto no navegador:** Basta abrir o arquivo `index.html`.
