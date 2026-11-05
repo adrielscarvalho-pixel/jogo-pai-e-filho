@@ -1,36 +1,38 @@
-# 🏆 Pai 🆚 Filho — O Desafio
+# 🏆 Arena de Jogos — Hub Multiplayer & Família
 
-Jogo divertido para jogar em família (2 a 4 jogadores) no computador, celular ou tablet.
+Central de jogos para 2 jogadores (no mesmo aparelho ou em **2 dispositivos conectados em tempo real**). Personalize o nome do Hub, crie seu Perfil Online (`#ID`), veja amigos online e convide com 1 clique!
 
-## 🎮 Modos de Jogo
+## 🎮 Jogos do Hub
 
-### 1. 💰 Dá Pra Comprar?
-- **🤫 Valor Secreto (O viral!):** Cada jogador escolhe um valor secreto em reais antes de ver os itens (ex: `R$ 10.000` vs `R$ 500.000`). A cada pergunta (*"Dá pra comprar um PS5?"*, *"Dá pra comprar um BYD Dolphin Mini?"*), quem escolheu o valor mais próximo do preço real ganha **+1 ponto** (e **+1 bônus NA MOSCA 🎯** se ficar a menos de 10% do valor!).
-- **🎯 Chute o Preço:** Aparece o item primeiro e cada jogador chuta o valor em segredo. Quem chegar mais perto vence a rodada!
+### 1. 💰 Acerte o Valor ("Dá Pra Comprar?")
+O verdadeiro jogo viral!
+1. Cada jogador escolhe um **Valor Secreto** (com limite configurável pelo Admin: de R$ 10 mil até R$ 100 bilhões). **O adversário não vê o seu valor!**
+2. Os jogadores se revezam fazendo perguntas de **SIM ou NÃO** (*"Com o seu valor, dá pra comprar um PS5?"*, *"Dá pra comprar um BYD popular?"*), usando mais de **70 sugestões organizadas por faixa de preço** ou digitando qualquer pergunta livre.
+3. Um **Termômetro de Investigação** atualiza automaticamente o mínimo (≥) e o máximo (<) descobertos sobre o valor do adversário.
+4. No fim, cada um dá o **Chute Final** tentando adivinhar o valor secreto do oponente.
+5. **Pontuação Proporcional Justa (%):** ganha quem chegar proporcionalmente mais perto do valor real do adversário ($\frac{\min(\text{chute}, \text{real})}{\max(\text{chute}, \text{real})} \times 100\%$).
 
 ### 2. ⚽ Tema Secreto (Futebol)
-Um jogador é o **Juiz** e escolhe um tema secreto entre 3 opções sorteadas (ou inventa um na hora), como *"Jogaram no Real Madrid E no Barcelona"*. O outro jogador começa com **Fichas de Futebol (⚽)** e vai chutando jogadores:
-- **SIM ✅ (é do tema):** Grátis (`0 ⚽`)
-- **NÃO ❌ (não é do tema):** `-1 ⚽`
-- **💡 Pedir Dica (até 3 dicas progressivas):** `-2 ⚽`
-- **👀 Revelar 1 Jogador do tema:** `-3 ⚽`
-- **🎯 Chutar o Tema:** Se acertar, **todas as fichas que sobraram viram pontos!** Se errar, `-3 ⚽`.
-- **🧤 Defesa do Juiz:** Se as fichas acabarem, o Juiz ganha **+5 pontos**.
+- **Mais de 55 temas pré-preenchidos** divididos por categorias (*Futebol Brasileiro, Clubes Europeus, Copas & Seleções, Lendas & Prêmios, Curiosidades*), com busca e filtro.
+- **Configuração avançada do "👀 Revelar Jogador":**
+  - Opção de começar a rodada já com **1 jogador do tema revelado grátis** (escolhido pelo Juiz ou sorteado).
+  - Custo configurável (`Grátis`, `-1 ⚽`, `-2 ⚽`, `-3 ⚽` ou `Desativado`) e limite por rodada.
+  - O Juiz também pode revelar jogadores da sua cola como "colher de chá" sem descontar fichas.
 
-## 📲 Jogar em 1 ou 2 Aparelhos
+### 3. 🕵️ Quem Sou Eu? (Craques & Lendas)
+- Descubra qual craque secreto está na sua carta usando o menor número de pistas possível!
 
-- **1 Aparelho (Passa o celular):** O próprio jogo bloqueia a tela com aviso antes de revelar o valor secreto ou o tema secreto de cada um.
-- **2 Aparelhos (Sala Online em Tempo Real):**
-  1. No Aparelho 1, toque em **📲 Jogar em 2 Aparelhos → Criar Sala** (gera um código de 4 dígitos, ex: `7954`, ou link direto).
-  2. No Aparelho 2, abra o link e digite os 4 dígitos em **Entrar numa Sala**.
-  3. No **Dá Pra Comprar?**, cada um digita seu valor secreto no próprio aparelho simultaneamente.
-  4. No **Tema Secreto ⚽**, a tela do **Juiz** mostra o tema secreto e a cola de jogadores o tempo todo, enquanto a tela do **Adivinhador** esconde o segredo e mostra os palpites/dicas em tempo real!
+### 4. 📈 Mais ou Menos? (Recordes do Futebol)
+- Quem tem mais gols, títulos ou recordes históricos? Acumule pontos acertando se o próximo número é maior ou menor.
+
+### 5. ⚡ Duelo Relâmpago (Quiz 1v1)
+- Disputa rápida de perguntas e respostas sobre Copas, Champions League e craques do futebol.
+
+## 📲 Sala Online, Amigos Online e Controle de Admin
+- **Perfil Online (`#ID`):** crie seu perfil com nome e avatar.
+- **Amigos Online & Convite em 1 Clique:** veja quem está online no lobby e envie um convite direto (abre um popup na tela do amigo para entrar na sala com 1 toque!).
+- **Somente o Admin configura:** quem cria a sala é o **👑 Admin**; o convidado vê as configurações em tempo real sem risco de alterar ou interromper a criação da partida.
 
 ## 🚀 Como jogar
-
-- **Direto no navegador:** Basta abrir o arquivo `index.html`.
-- **Com servidor local (Node.js):**
-  ```bash
-  npm install
-  npm start
-  ```
+- **Online (GitHub Pages):** https://adrielscarvalho-pixel.github.io/jogo-pai-e-filho/
+- **Localmente:** abra `index.html` ou rode `npm start`.
